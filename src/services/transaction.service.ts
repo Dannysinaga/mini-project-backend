@@ -3,7 +3,7 @@ import type { CreateTransactionDTOType } from "../dtos/transaction/create-transa
 
 export class TransactionService {
   async createTransaction(data: CreateTransactionDTOType) {
-    const { userId, eventId, items } = data;
+    const { userId, eventId, items, usedPoints = 0 } = data;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -11,6 +11,10 @@ export class TransactionService {
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    if (usedPoints > user.points) {
+      throw new Error("Not enough points");
     }
 
     const event = await prisma.event.findUnique({
@@ -50,6 +54,9 @@ export class TransactionService {
       }
     );
 
+    const safeUsedPoints = Math.min(usedPoints, totalAmount);
+    const finalAmount = totalAmount - safeUsedPoints;
+
     const paymentDeadlineAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     const transaction = await prisma.$transaction(async (tx) => {
@@ -58,7 +65,8 @@ export class TransactionService {
           userId,
           eventId,
           totalAmount,
-          finalAmount: totalAmount,
+          pointsUsed: safeUsedPoints,
+          finalAmount,
           status: "WAITING_PAYMENT",
           paymentDeadlineAt,
           items: {
@@ -83,6 +91,28 @@ export class TransactionService {
             availableQuota: {
               decrement: item.quantity,
             },
+          },
+        });
+      }
+
+      if (safeUsedPoints > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            points: {
+              decrement: safeUsedPoints,
+            },
+          },
+        });
+
+        await tx.pointsHistory.create({
+          data: {
+            userId,
+            amount: safeUsedPoints,
+            type: "DEBIT",
+            source: "TRANSACTION_USE",
+            referenceType: "TRANSACTION",
+            referenceId: createdTransaction.id,
           },
         });
       }

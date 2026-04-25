@@ -26,4 +26,4 @@ app.use("/transactions", transactionRoutes);
 app.use("/points", pointsRoutes);
 app.use("/dashboard", dashboardRoutes);                   
 
-export default app;
+export default app; 

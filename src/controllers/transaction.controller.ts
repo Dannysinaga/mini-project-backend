@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 
 export const createTransaction = async (req: Request, res: Response) => {
   try {
-    const { userId, eventId, items } = req.body;
+    const { userId, eventId, items, usedPoints = 0 } = req.body;
 
     if (!userId || !eventId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -20,6 +20,13 @@ export const createTransaction = async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (usedPoints > user.points) {
+      return res.status(400).json({
+        success: false,
+        message: "Not enough points",
       });
     }
 
@@ -67,6 +74,8 @@ export const createTransaction = async (req: Request, res: Response) => {
       }
     );
 
+    const safeUsedPoints = Math.min(usedPoints, totalAmount);
+    const finalAmount = totalAmount - safeUsedPoints;
     const paymentDeadlineAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     const transaction = await prisma.$transaction(async (tx) => {
@@ -75,7 +84,8 @@ export const createTransaction = async (req: Request, res: Response) => {
           userId,
           eventId,
           totalAmount,
-          finalAmount: totalAmount,
+          pointsUsed: safeUsedPoints,
+          finalAmount,
           status: "WAITING_PAYMENT",
           paymentDeadlineAt,
           items: {
@@ -100,6 +110,28 @@ export const createTransaction = async (req: Request, res: Response) => {
             availableQuota: {
               decrement: item.quantity,
             },
+          },
+        });
+      }
+
+      if (safeUsedPoints > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            points: {
+              decrement: safeUsedPoints,
+            },
+          },
+        });
+
+        await tx.pointsHistory.create({
+          data: {
+            userId,
+            amount: safeUsedPoints,
+            type: "DEBIT",
+            source: "TRANSACTION_USE",
+            referenceType: "TRANSACTION",
+            referenceId: createdTransaction.id,
           },
         });
       }
