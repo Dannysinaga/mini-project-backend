@@ -41,30 +41,32 @@ export class DashboardService {
   }
 
   async getChartData(organizerId: string, year: number) {
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31);
+  const startDate = new Date(year, 0, 1);
+  const endDate = new Date(year, 11, 31);
 
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        event: { organizerId },
-        status: 'DONE',
-        createdAt: { gte: startDate, lte: endDate },
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      event: { organizerId },
+      status: {
+        in: ['DONE', 'WAITING_PAYMENT'],
       },
-      select: { finalAmount: true, createdAt: true },
-    });
+      createdAt: { gte: startDate, lte: endDate },
+    },
+    select: { finalAmount: true, createdAt: true },
+  });
 
-    // Group by month
-    const monthlyData = Array(12).fill(0);
-    for (const transaction of transactions) {
-      const month = new Date(transaction.createdAt).getMonth();
-      monthlyData[month] += transaction.finalAmount;
-    }
+  const monthlyData = Array(12).fill(0);
 
-    return monthlyData.map((revenue, index) => ({
-      month: index + 1,
-      revenue,
-    }));
+  for (const transaction of transactions) {
+    const month = new Date(transaction.createdAt).getMonth();
+    monthlyData[month] += transaction.finalAmount;
   }
+
+  return monthlyData.map((revenue, index) => ({
+    label: new Date(0, index).toLocaleString("default", { month: "short" }),
+    value: revenue,
+  }));
+}
 
   async getAttendees(organizerId: string, eventId: string) {
     // Verify event belongs to organizer

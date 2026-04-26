@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 
 export const createTransaction = async (req: Request, res: Response) => {
   try {
-    const { userId, eventId, items, usedPoints = 0 } = req.body;
+    const { userId, eventId, items, usedPoints = 0, couponCode } = req.body;
 
     if (!userId || !eventId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -74,8 +74,36 @@ export const createTransaction = async (req: Request, res: Response) => {
       }
     );
 
-    const safeUsedPoints = Math.min(usedPoints, totalAmount);
-    const finalAmount = totalAmount - safeUsedPoints;
+    let couponId: string | null = null;
+    let couponDiscount = 0;
+
+    if (couponCode && String(couponCode).trim() !== "") {
+      const coupon = await prisma.coupon.findFirst({
+        where: {
+          code: String(couponCode).trim(),
+          userId,
+          usedAt: null,
+          isUsed: false,
+          validUntil: {
+            gte: new Date(),
+          },
+        },
+      });
+
+      if (!coupon) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired coupon",
+        });
+      }
+
+      couponId = coupon.id;
+      couponDiscount = Math.min(coupon.discountAmount, totalAmount);
+    }
+
+    const amountAfterCoupon = totalAmount - couponDiscount;
+    const safeUsedPoints = Math.min(usedPoints, amountAfterCoupon);
+    const finalAmount = amountAfterCoupon - safeUsedPoints;
     const paymentDeadlineAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     const transaction = await prisma.$transaction(async (tx) => {
@@ -83,7 +111,9 @@ export const createTransaction = async (req: Request, res: Response) => {
         data: {
           userId,
           eventId,
+          couponId,
           totalAmount,
+          couponDiscount,
           pointsUsed: safeUsedPoints,
           finalAmount,
           status: "WAITING_PAYMENT",
@@ -100,6 +130,7 @@ export const createTransaction = async (req: Request, res: Response) => {
               profile: true,
             },
           },
+          coupon: true,
         },
       });
 
@@ -110,6 +141,16 @@ export const createTransaction = async (req: Request, res: Response) => {
             availableQuota: {
               decrement: item.quantity,
             },
+          },
+        });
+      }
+
+      if (couponId) {
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: {
+            isUsed: true,
+            usedAt: new Date(),
           },
         });
       }
