@@ -8,6 +8,7 @@ import pointsRoutes from "./routes/points.routes";
 import dashboardRoutes from "./routes/dashboard.routes"; 
 import couponRoutes from './routes/coupon.routes';   
 import voucherRoutes from './routes/voucher.routes';
+import reviewRoutes from './routes/review.routes';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/transactions", transactionRoutes);
 app.use("/points", pointsRoutes);
 app.use("/dashboard", dashboardRoutes); 
 app.use('/', couponRoutes);   
-app.use('/vouchers', voucherRoutes);          
+app.use('/vouchers', voucherRoutes);    
+app.use('/reviews', reviewRoutes);      
 
 export default app; 
