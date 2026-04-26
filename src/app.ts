@@ -7,6 +7,7 @@ import transactionRoutes from "./routes/transaction.routes";
 import pointsRoutes from "./routes/points.routes";
 import dashboardRoutes from "./routes/dashboard.routes"; 
 import couponRoutes from './routes/coupon.routes';   
+import voucherRoutes from './routes/voucher.routes';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/events", eventRoutes);
 app.use("/transactions", transactionRoutes);                      
 app.use("/points", pointsRoutes);
 app.use("/dashboard", dashboardRoutes); 
-app.use('/', couponRoutes);             
+app.use('/', couponRoutes);   
+app.use('/vouchers', voucherRoutes);          
 
 export default app; 
