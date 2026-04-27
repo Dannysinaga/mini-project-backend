@@ -6,3 +6,5 @@ build/
 uploads/
 .DS_Store
 /src/generated/prisma
+.vercel
+.env*.local

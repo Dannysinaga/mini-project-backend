@@ -12,7 +12,17 @@ import reviewRoutes from './routes/review.routes';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://mini-project-frontend-xi.vercel.app"
+  ],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
@@ -32,4 +42,4 @@ app.use('/', couponRoutes);
 app.use('/vouchers', voucherRoutes);    
 app.use('/reviews', reviewRoutes);      
 
-export default app; 
+export default app;

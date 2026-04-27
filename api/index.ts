@@ -1,6 +1,4 @@
-import app from '../src/app';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import "dotenv/config";
+import app from "../src/app";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  return app(req, res);
-}
+export default app;
